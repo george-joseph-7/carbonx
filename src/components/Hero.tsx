@@ -27,7 +27,7 @@ export default function Hero({ play }: { play: boolean }) {
         scrollTrigger: { trigger: root.current, start: "top top", end: "bottom top", scrub: 0.8 },
       });
       tl.to(".hero__char-wrap", { yPercent: (i) => (i % 2 ? -40 : 30) * (1 + i * 0.12), opacity: 0.1, ease: "none", stagger: 0.01 }, 0)
-        .to(".hero__title", { letterSpacing: "0.12em", scale: 0.92, filter: "blur(6px)", ease: "none" }, 0)
+        .to(".hero__title", { scale: 0.92, opacity: 0.35, ease: "none" }, 0)
         .to(".hero__below", { y: -80, opacity: 0, ease: "none" }, 0)
         .to(".hero__hud", { opacity: 0, ease: "none" }, 0);
     }, root);

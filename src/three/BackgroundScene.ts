@@ -84,7 +84,7 @@ void main(){
 
   // Flow-field turbulence
   float n = snoise(pos * 0.18 + vec3(0.0, t * 0.08, aSeed));
-  float n2 = snoise(pos * 0.21 + vec3(t * 0.07, 3.1, aSeed * 2.0));
+  float n2 = sin(n * 3.0 + pos.x * 0.3 + t * 0.35 + aSeed * 6.2831);
   pos += vec3(n, n2, n * n2) * (0.35 + uEnergy * 0.55 + uPulse * 1.5);
 
   // Pointer repulsion in the z~0 plane
@@ -180,6 +180,12 @@ export class BackgroundScene {
   private elapsed = 0;
   private raf = 0;
   private running = true;
+  // Adaptive quality: render at most 60fps and shed resolution if frames run long
+  private dpr = 1;
+  private maxDpr = 1;
+  private lastRender = 0;
+  private frameSamples = 0;
+  private frameTimeSum = 0;
   private live = {
     shape: 0,
     colorA: new THREE.Color(),
@@ -196,11 +202,14 @@ export class BackgroundScene {
   constructor(canvas: HTMLCanvasElement, opts: BackgroundOptions) {
     this.renderer = new THREE.WebGLRenderer({
       canvas,
-      antialias: !opts.lowPower,
+      // MSAA is wasted on soft additive points and costs a lot of fill rate
+      antialias: false,
       alpha: true,
-      powerPreference: "high-performance",
+      powerPreference: "default",
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, opts.lowPower ? 1.25 : 1.75));
+    this.maxDpr = Math.min(window.devicePixelRatio, opts.lowPower ? 1 : 1.25);
+    this.dpr = this.maxDpr;
+    this.renderer.setPixelRatio(this.dpr);
     this.renderer.setClearColor(0x000000, 0);
 
     this.camera = new THREE.PerspectiveCamera(55, 1, 0.1, 100);
@@ -210,7 +219,7 @@ export class BackgroundScene {
     this.live.colorB.set(sceneState.target.colorB);
 
     // ---------- particles ----------
-    const count = opts.lowPower ? 2600 : 9000;
+    const count = opts.lowPower ? 1800 : 5200;
     const pos = new Float32Array(count * 3);
     const sphere = new Float32Array(count * 3);
     const wave = new Float32Array(count * 3);
@@ -254,7 +263,7 @@ export class BackgroundScene {
         uShape: { value: 0 },
         uEnergy: { value: 1 },
         uPixelRatio: { value: this.renderer.getPixelRatio() },
-        uSize: { value: opts.lowPower ? 7 : 6 },
+        uSize: { value: opts.lowPower ? 7.5 : 7 },
         uMouse: { value: new THREE.Vector2(99, 99) },
         uLattice: { value: new THREE.Vector3() },
         uPulse: { value: 0 },
@@ -386,6 +395,8 @@ export class BackgroundScene {
     this.running = !document.hidden;
     if (this.running) {
       this.last = performance.now();
+      this.frameSamples = 0;
+      this.frameTimeSum = 0;
       this.loop();
     } else cancelAnimationFrame(this.raf);
   };
@@ -400,10 +411,33 @@ export class BackgroundScene {
     this.camera.updateProjectionMatrix();
   };
 
+  /** Drop render resolution step by step while frames consistently take too long. */
+  private adapt(interval: number) {
+    if (interval > 250) return; // tab switch / hitch, not a real sample
+    this.frameTimeSum += interval;
+    if (++this.frameSamples < 60) return;
+    const avg = this.frameTimeSum / this.frameSamples;
+    this.frameSamples = 0;
+    this.frameTimeSum = 0;
+    if (avg > 21 && this.dpr > 0.6) this.setDpr(Math.max(0.6, this.dpr * 0.8));
+  }
+
+  private setDpr(dpr: number) {
+    this.dpr = dpr;
+    this.renderer.setPixelRatio(dpr);
+    this.renderer.setSize(window.innerWidth, window.innerHeight, false);
+    this.particleMat.uniforms.uPixelRatio.value = dpr;
+    (this.latticeNodes.material as THREE.ShaderMaterial).uniforms.uPixelRatio.value = dpr;
+  }
+
   private loop = () => {
     if (!this.running) return;
     this.raf = requestAnimationFrame(this.loop);
     const now = performance.now();
+    // Cap at ~60fps: on 120/144Hz screens this halves GPU work with no visible difference
+    if (now - this.lastRender < 15.5 || sceneState.paused) return;
+    this.adapt(now - this.lastRender);
+    this.lastRender = now;
     const dt = Math.min((now - this.last) / 1000, 0.05);
     this.last = now;
     this.elapsed += dt;

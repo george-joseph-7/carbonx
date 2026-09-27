@@ -67,7 +67,7 @@ export default function Intro({ onReveal, onDone }: Props) {
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
     const low = isLowPower();
-    const dpr = Math.min(window.devicePixelRatio, low ? 1.5 : 2);
+    const dpr = Math.min(window.devicePixelRatio, low ? 1.25 : 1.5);
     let W = 0;
     let H = 0;
     let particles: P[] = [];
@@ -161,9 +161,14 @@ export default function Intro({ onReveal, onDone }: Props) {
       bolts.push({ pts, born: now, hue: Math.random() });
     };
 
+    let lastDraw = 0;
     const frame = () => {
       raf = requestAnimationFrame(frame);
-      const now = performance.now() - start + offset;
+      // cap at ~60fps (the motion trails are tuned per frame, and 120Hz+ would double the cost)
+      const real = performance.now();
+      if (real - lastDraw < 15.5) return;
+      lastDraw = real;
+      const now = real - start + offset;
       const cx = W / 2;
       const cy = H / 2;
 
@@ -269,15 +274,16 @@ export default function Intro({ onReveal, onDone }: Props) {
           bolts.splice(b, 1);
           continue;
         }
-        ctx.strokeStyle = colorFor(bolt.hue, (1 - age) * 0.8);
-        ctx.lineWidth = 1.4;
-        ctx.shadowBlur = 12;
-        ctx.shadowColor = colorFor(bolt.hue, 1);
         ctx.beginPath();
         const upto = Math.ceil(bolt.pts.length * Math.min(1, age * 3));
         bolt.pts.slice(0, upto).forEach(([x, y], k) => (k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+        // fake glow: wide faint pass + thin bright pass (canvas shadowBlur is very slow)
+        ctx.strokeStyle = colorFor(bolt.hue, (1 - age) * 0.18);
+        ctx.lineWidth = 7;
         ctx.stroke();
-        ctx.shadowBlur = 0;
+        ctx.strokeStyle = colorFor(bolt.hue, (1 - age) * 0.85);
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
       }
 
       // horizontal scanline sweep during boot

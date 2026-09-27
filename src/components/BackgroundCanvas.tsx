@@ -3,10 +3,12 @@ import { isLowPower } from "../lib/device";
 import { sceneState } from "../three/sceneState";
 
 /** Fixed full-screen WebGL layer shared by every section. three.js is loaded lazily. */
-export default function BackgroundCanvas() {
+/** `active` stays false during the intro so its canvas and the 3D scene never render at the same time. */
+export default function BackgroundCanvas({ active }: { active: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    if (!active) return;
     let disposed = false;
     let dispose: (() => void) | undefined;
     import("../three/BackgroundScene")
@@ -32,7 +34,7 @@ export default function BackgroundCanvas() {
       dispose?.();
       window.removeEventListener("pointermove", onMove);
     };
-  }, []);
+  }, [active]);
 
   return (
     <div className="bg" aria-hidden="true">

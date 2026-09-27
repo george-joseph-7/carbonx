@@ -54,7 +54,7 @@ export default function App() {
 
   return (
     <>
-      <BackgroundCanvas />
+      <BackgroundCanvas active={revealed} />
       <Cursor />
       {!introDone ? <Intro onReveal={onReveal} onDone={onDone} /> : null}
       <Nav visible={revealed} />

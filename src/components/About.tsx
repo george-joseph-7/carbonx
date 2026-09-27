@@ -17,10 +17,9 @@ function ScrollLitText({ text }: { text: string }) {
     const ctx = gsap.context(() => {
       gsap.fromTo(
         words,
-        { opacity: 0.12, filter: "blur(3px)" },
+        { opacity: 0.12 },
         {
           opacity: 1,
-          filter: "blur(0px)",
           stagger: 0.05,
           ease: "none",
           scrollTrigger: { trigger: ref.current, start: "top 80%", end: "bottom 45%", scrub: 0.5 },

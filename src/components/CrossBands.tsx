@@ -15,13 +15,21 @@ function Band({ items, dir, className }: { items: string[]; dir: 1 | -1; classNa
     let lastY = window.scrollY;
     let sign = 1;
     const reduced = prefersReducedMotion();
+    // only animate while the bands are on screen
+    let onScreen = false;
+    const io = new IntersectionObserver(([e]) => (onScreen = e.isIntersecting));
+    io.observe(el);
+    // measure once (and on resize) instead of forcing a layout read every frame
+    let half = el.scrollWidth / 2;
+    const ro = new ResizeObserver(() => (half = el.scrollWidth / 2));
+    ro.observe(el);
     const tick = (_t: number, dt: number) => {
+      if (!onScreen) return;
       const y = window.scrollY;
       if (y !== lastY) sign = y > lastY ? 1 : -1;
       lastY = y;
       const speed = reduced ? 0 : (0.04 + Math.min(sceneState.velocity, 60) * 0.012) * dt;
       x -= speed * dir * sign;
-      const half = el.scrollWidth / 2;
       if (half > 0) {
         if (x <= -half) x += half;
         if (x > 0) x -= half;
@@ -29,7 +37,11 @@ function Band({ items, dir, className }: { items: string[]; dir: 1 | -1; classNa
       el.style.transform = `translate3d(${x}px,0,0)`;
     };
     gsap.ticker.add(tick);
-    return () => gsap.ticker.remove(tick);
+    return () => {
+      gsap.ticker.remove(tick);
+      io.disconnect();
+      ro.disconnect();
+    };
   }, [dir]);
   const row = [...items, ...items, ...items];
   return (

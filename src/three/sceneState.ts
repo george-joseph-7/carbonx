@@ -41,6 +41,8 @@ export const sceneState = {
   progress: 0,
   /** Brief flash when switching presets */
   pulse: 0,
+  /** Skip rendering while something opaque covers the page (menu, track modal) */
+  paused: false,
 };
 
 export function setPreset(name: keyof typeof presets | string) {

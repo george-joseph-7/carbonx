@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { event, tracks, type Track } from "../data/content";
 import { lockScroll } from "../lib/scroll";
-import { setPreset } from "../three/sceneState";
+import { sceneState, setPreset } from "../three/sceneState";
 import TrackCanvas from "./TrackCanvas";
 import { MagneticButton, SectionHeader } from "./ui";
 
@@ -12,7 +12,10 @@ function useDistort(id: string) {
   const kick = () => {
     const turb = document.getElementById(`${id}-turb`);
     const disp = document.getElementById(`${id}-disp`);
-    if (!turb || !disp) return;
+    const title = document.querySelector<HTMLElement>(`[data-distort="${id}"]`);
+    if (!turb || !disp || !title) return;
+    // The SVG filter is only attached while it animates — left on, it re-runs every paint
+    title.style.filter = `url(#${id})`;
     cancelAnimationFrame(raf.current);
     const start = performance.now();
     const step = () => {
@@ -21,7 +24,10 @@ function useDistort(id: string) {
       disp.setAttribute("scale", String(s));
       turb.setAttribute("baseFrequency", `${0.012 + k * 0.02} ${0.06 - k * 0.03}`);
       if (k < 1) raf.current = requestAnimationFrame(step);
-      else disp.setAttribute("scale", "0");
+      else {
+        disp.setAttribute("scale", "0");
+        title.style.filter = "";
+      }
     };
     step();
   };
@@ -106,7 +112,7 @@ function TrackPanel({
 
       <div className="track__body">
         <span className="track__kicker">{t.kicker}</span>
-        <h3 className="track__name" style={{ filter: `url(#f-${t.id})` }}>
+        <h3 className="track__name" data-distort={`f-${t.id}`}>
           {t.name}
         </h3>
         <p className="track__short">{t.short}</p>
@@ -140,11 +146,13 @@ function TrackModal({ t, onClose }: { t: Track; onClose: () => void }) {
   useEffect(() => {
     lockScroll(true);
     setPreset(t.id);
+    sceneState.paused = true; // the page behind is covered — stop rendering it
     const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", esc);
     return () => {
       lockScroll(false);
       setPreset("tracks");
+      sceneState.paused = false;
       window.removeEventListener("keydown", esc);
     };
   }, [t.id, onClose]);
@@ -157,7 +165,7 @@ function TrackModal({ t, onClose }: { t: Track; onClose: () => void }) {
       aria-modal="true"
       aria-label={`${t.name} track details`}
       initial={{ backgroundColor: "rgba(3,3,8,0)" }}
-      animate={{ backgroundColor: "rgba(3,3,8,0.7)" }}
+      animate={{ backgroundColor: "rgba(3,3,8,0.88)" }}
       exit={{ backgroundColor: "rgba(3,3,8,0)" }}
       onClick={onClose}
     >

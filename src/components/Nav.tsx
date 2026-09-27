@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { event } from "../data/content";
 import { scrollToTarget, lockScroll } from "../lib/scroll";
 import LogoMark from "./LogoMark";
+import { sceneState } from "../three/sceneState";
 
 const LINKS = [
   { id: "about", label: "About" },
@@ -46,6 +47,7 @@ export default function Nav({ visible }: { visible: boolean }) {
 
   useEffect(() => {
     lockScroll(open);
+    sceneState.paused = open; // full-screen menu covers the 3D scene
   }, [open]);
 
   const go = (id: string) => {
